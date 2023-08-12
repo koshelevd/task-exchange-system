@@ -36,6 +36,12 @@ class UserService:
         user = await self.uow.user_repo.create_user(email=email, password=hash_, role_id=1)
         self.uow.session.add(user)
         await self.uow.session.commit()
+        event = self.event_constructor.create_producer_event(
+            topic="user_created",
+            value=user.dict(),
+            key=user.id,
+        )
+        await self.uow.producer.send_and_wait(event)
         return user
 
     async def signin(self, email: str, password: str) -> TokenSchema:

@@ -33,6 +33,10 @@ class TaskService:
             raise ObjectAlreadyExistsError(exc.params)
         else:
             await self.uow.commit()
+            event = self.event_constructor.create_producer_event(
+                topic=self.uow.topic, value=task.dict(), event_type="task_created"
+            )
+            await self.uow.send(event)
 
     async def update_task(self, task_id: int, task_data: TaskUpdateDto) -> None:
         task = await self.uow.task_repo.get_task_by_id(task_id)
@@ -44,3 +48,7 @@ class TaskService:
             raise ObjectAlreadyExistsError(exc.params)
         else:
             await self.uow.session.commit()
+            event = self.event_constructor.create_producer_event(
+                topic=self.uow.topic, value=task.dict(), event_type="task_updated"
+            )
+            await self.uow.send(event)
