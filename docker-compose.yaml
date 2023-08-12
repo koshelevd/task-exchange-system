@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  sso-db:
+    image: postgres:14.4-alpine
+    volumes:
+      - postgres_data_sso:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    restart: always
+    ports:
+      - "54321:5432"
+
+  task-tracker-db:
+    image: postgres:14.4-alpine
+    volumes:
+      - postgres_data_tasks:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    restart: always
+    ports:
+      - "54322:5432"
+
+volumes:
+  postgres_data_sso:
+  postgres_data_tasks:
