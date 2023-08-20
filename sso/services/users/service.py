@@ -1,15 +1,14 @@
-from copy import copy
-
-from email_validator import EmailSyntaxError
-from pydantic import validate_email
-from sqlalchemy.exc import IntegrityError
-from utils.auth import create_access_token, get_hashed_password, verify_password
-
 from db.tables import User
 from dto.users_schemas import TokenSchema
-from services.errors import BadRequestError, ObjectAlreadyExistsError
+from email_validator import EmailSyntaxError
+from pydantic import validate_email
+from services.errors import BadRequestError
 from services.interfaces import EventConstructorInterface
 from services.users.interfaces import UserUoWInterface
+from utils.auth import create_access_token, get_hashed_password, verify_password
+
+from schemas.sso.user.created.v1 import UserCreatedEventDto
+from schemas.sso.user.updated.v1 import UserUpdatedEventDto
 
 
 class UserService:
@@ -37,9 +36,22 @@ class UserService:
         self.uow.session.add(user)
         await self.uow.session.commit()
         event = self.event_constructor.create_producer_event(
-            topic="user_created",
-            value=user.dict(),
-            key=user.id,
+            topic=broker_settings.USER_TOPIC,
+            value=UserCreatedEventDto(**user.dict()).dict(),
+        )
+        await self.uow.producer.send_and_wait(event)
+        return user
+
+    async def update_user(self, user_data: UserDto) -> User:
+        """
+        Update user info.
+        """
+        user = await self.uow.user_repo.update_user(**user_data.as_dict()
+        self.uow.session.add(user)
+        await self.uow.session.commit()
+        event = self.event_constructor.create_producer_event(
+            topic=broker_settings.USER_TOPIC,
+            value=UserUpdatedEventDto(**user.dict()).dict(),
         )
         await self.uow.producer.send_and_wait(event)
         return user

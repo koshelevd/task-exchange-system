@@ -1,11 +1,14 @@
-from sqlalchemy.exc import IntegrityError
-
 from db.tables import Task
 from dto.schemas.request import CommonBaseQueryParamSchema
 from dto.task.task import TaskCreateDto, TaskUpdateDto
 from services.errors import ObjectAlreadyExistsError
 from services.interfaces import EventConstructorInterface
 from services.task import TaskNotFoundError, TaskUoWInterface
+from sqlalchemy.exc import IntegrityError
+
+from schemas.task_tracker.task.assigned.v1 import TaskAssignedEventDto
+from schemas.task_tracker.task.completed.v1 import TaskCompletedEventDto
+from schemas.task_tracker.task.created.v1 import TaskCreatedEventDto
 
 
 class TaskService:
@@ -34,7 +37,7 @@ class TaskService:
         else:
             await self.uow.commit()
             event = self.event_constructor.create_producer_event(
-                topic=self.uow.topic, value=task.dict(), event_type="task_created"
+                topic=broker_settings.TASK_TOPIC, value=TaskCreatedEventDto(**task.dict()).dict()
             )
             await self.uow.send(event)
 
@@ -48,7 +51,12 @@ class TaskService:
             raise ObjectAlreadyExistsError(exc.params)
         else:
             await self.uow.session.commit()
-            event = self.event_constructor.create_producer_event(
-                topic=self.uow.topic, value=task.dict(), event_type="task_updated"
-            )
+            if task_data.is_assigned:
+                event = self.event_constructor.create_producer_event(
+                    topic=broker_settings.TASK_TOPIC, value=TaskAssignedEventDto(**task.dict()).dict()
+                )
+            else:
+                event = self.event_constructor.create_producer_event(
+                    topic=broker_settings.TASK_TOPIC, value=TaskCompletedEventDto(**task.dict()).dict()
+                )
             await self.uow.send(event)
